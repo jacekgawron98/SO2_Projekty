@@ -16,7 +16,8 @@ Person::Person(int id, int startTime,int healthTime, int quarantineTime, int idT
     this->idTime = idTime;
     this->checkpointsLength = length;
     this->state = INIT;
-    this->type = ENTER;
+    int random = generateRandomInt(0,1);
+    this->type = random == 0? ENTER : EXIT;
     running = true;
 }
 
@@ -31,6 +32,7 @@ void Person::execute(){
         std::unique_lock<std::mutex> uniqlock(checkpoints[checkpointIndex].checkpointMutex);
         checkpoints[checkpointIndex].checkpointQuarantine
             .wait(uniqlock,[this]{return checkpoints[checkpointIndex].priorityFree;});
+        refreshMainScreen();
         drawLogs("Person %d entering checkpoint %d", this->id, this->checkpointIndex );
         if(this->type == EXIT){
             if(!identityControl()){
@@ -39,6 +41,11 @@ void Person::execute(){
                 continue;
             }
             initialControl();
+            leftTotal++;
+            std::unique_lock<std::mutex> totalslock(screenMutex);
+            refreshTotals();
+            totalslock.unlock();
+
         }else if(this->type == ENTER){
             initialControl();
             if(!healthControl()){
@@ -47,6 +54,7 @@ void Person::execute(){
                 quarantine();
                 checkpoints[checkpointIndex].priorityFree = false;
                 uniqlock.lock();
+                checkpoints[checkpointIndex].removeFromQuarantine(this->id);
                 checkpoints[checkpointIndex].priorityFree = true;
             }
             if(!identityControl()){
@@ -55,11 +63,17 @@ void Person::execute(){
                 resetThread();
                 continue;
             }
+            enteredTotal++;
+            std::unique_lock<std::mutex> totalslock(screenMutex);
+            refreshTotals();
+            totalslock.unlock();
         }
         checkpoints[checkpointIndex].checkpointQuarantine.notify_all();
         uniqlock.unlock();
         drawLogs("Person %d unlocked", this->id );
+        std::unique_lock<std::mutex> screenlock(screenMutex);
         checkpoints[checkpointIndex].drawCheckpoint(-1,new Person());
+        screenlock.unlock();
         resetThread();
     }
 }
@@ -70,15 +84,17 @@ int Person::claimCheckpoint(){
 
 void Person::initialControl(){
     this->state = START_CONTROL;
+    refreshMainScreen();
     std::this_thread::sleep_for(std::chrono::seconds(this->startTime));
     drawLogs("Person %d passed initial control", this->id );
 }
 
 bool Person::healthControl(){
     this->state = HEALTH_CONTROL;
+    refreshMainScreen();
     std::this_thread::sleep_for(std::chrono::seconds(this->healthTime));
     int virusRandom = generateRandomInt(0,500);
-    if(virusRandom > 200){
+    if(virusRandom > 300){
         drawLogs("Person %d has a deadly virus", this->id );
         return false;
     }
@@ -88,9 +104,10 @@ bool Person::healthControl(){
 
 bool Person::identityControl(){
     this->state = ID_CONTROL;
+    refreshMainScreen();
     std::this_thread::sleep_for(std::chrono::seconds(this->idTime));
     int criminalRandom = generateRandomInt(0,1000);
-    if(criminalRandom > 500){
+    if(criminalRandom > 850){
         drawLogs("Person %d is a wanted criminal", this->id );
         return false;
     }
@@ -100,7 +117,6 @@ bool Person::identityControl(){
 
 void Person::quarantine(){
     std::this_thread::sleep_for(std::chrono::seconds(this->quarantineTime));
-    checkpoints[checkpointIndex].removeFromQuarantine(this->id);
     drawLogs("Person %d finished quarantine", this->id );
 }
 
@@ -110,14 +126,19 @@ void Person::drawLogs(char const *log,...){
     va_start(args, log);
     vsprintf(dest, log, args);
     va_end(args);
-    logsMutex.lock();
+    std::unique_lock<std::mutex> screenlock(screenMutex);
     box(logswin,0,0);
-    mvwprintw(logswin,2,2,"                                      ");
+    mvwprintw(logswin,2,2,"                                        ");
     mvwprintw(logswin,2,2,dest);
     wrefresh(logswin);
+    screenlock.unlock();
+}
+
+void Person::refreshMainScreen(){
+    std::unique_lock<std::mutex> slock(screenMutex);
     checkpoints[checkpointIndex].drawCheckpoint(this->id,this);
     wrefresh(mainwin);
-    logsMutex.unlock();
+    slock.unlock();
 }
 
 void Person::resetThread(){

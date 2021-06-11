@@ -49,7 +49,8 @@ public:
     void resetThread();
 
     void drawLogs(char const *log,...);
-    
+    void refreshMainScreen();
+
     int getId();
 
     std::thread personThread();

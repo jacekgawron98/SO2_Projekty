@@ -10,11 +10,16 @@
 
 extern WINDOW* logswin;
 extern WINDOW* mainwin;
+extern WINDOW* totalswin;
 extern Checkpoint* checkpoints;
-extern std::mutex logsMutex;
+extern std::mutex screenMutex;
 extern std::condition_variable quarantineCV; 
+extern int enteredTotal;
+extern int leftTotal;
 extern bool priorityFree;
  
 int generateRandomInt(int min, int max);
+
+void refreshTotals();
 
 #endif

@@ -13,9 +13,10 @@ void Checkpoint::drawCheckpoint(int personID, Person* p){
     std::string id_c =  p->state == ID_CONTROL? std::to_string(p->getId()) : "#";
     char qa = quarantineIDs.size() > 0? 'P' : '#';
     mvwprintw(mainwin,1 + 3*id,1,"IC  HC  QA  ID");
-    mvwprintw(mainwin,2 + 3*id,1,"                                          ");
+    mvwprintw(mainwin,2 + 3*id,1,"");
     mvwprintw(mainwin,2 + 3*id,1,"%s  %s  %c  %s", ic.c_str(), hc.c_str(), qa, id_c.c_str());
     wrefresh(mainwin);
+    refresh();
 }
 
 void Checkpoint::addToQuarantine(int id){

@@ -13,15 +13,17 @@
 #include "checkpoint.h"
 
 Checkpoint* checkpoints;
-std::mutex logsMutex;
+std::mutex screenMutex;
 std::vector<Person> personList;
 std::vector<std::thread> threads;
 std::condition_variable quarantineCV; 
 WINDOW* logswin;
 WINDOW* mainwin;
+WINDOW* totalswin;
 bool priorityFree = true;
+int enteredTotal = 0;
+int leftTotal = 0;
 
-bool running = true;
 int id = 0;
 int threadsCount = 20;
 
@@ -53,16 +55,21 @@ int main(){
 
     initscr();
     printw("Busy border simulation");
-    mainwin = newwin(numberOfCheckpoints*3,200,1,0);
-    logswin = newwin(5,100,numberOfCheckpoints*3+2,0);
+    mainwin = newwin(numberOfCheckpoints*3 + 2,50,1,0);
+    logswin = newwin(5,100,1,51);
+    totalswin = newwin(6,100,7,51);
     
     refresh();
     box(mainwin,0,0);
     wrefresh(mainwin);
-    
+    box(totalswin,0,0);
+    refreshTotals();
+
     for(int i  = 0; i<numberOfCheckpoints; i++){
         checkpoints[i].id = i;
+        std::unique_lock<std::mutex> screenlock(screenMutex);
         checkpoints[i].drawCheckpoint(-1,new Person());
+        screenlock.unlock();
     }
     
     for(int i = 0; i < 100; i++){
@@ -75,7 +82,6 @@ int main(){
 
 
     getch();
-    //running = false;
 
     for(int i = 0; i < personList.size(); i++){
         personList[i].running = false;
